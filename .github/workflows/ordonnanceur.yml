@@ -1,0 +1,53 @@
+name: Ordonnanceur de paie
+
+on:
+  schedule:
+    # Hourly, at minute 17. GitHub explicitly discourages scheduling on the
+    # hour: runs queued at :00 compete with a large share of all scheduled
+    # workflows on the platform and are delayed the most.
+    - cron: "17 * * * *"
+
+  # Lets the payroll be triggered manually from the Actions tab — the only
+  # practical way to demonstrate a cycle live during a thesis defence.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never let two ticks overlap. The on-chain interval guard already makes a
+  # double execution impossible, but overlapping runs would waste gas on a
+  # transaction destined to revert.
+  group: ordonnanceur
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    name: Tick
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run one tick
+        run: npm run tick
+        env:
+          RPC_URL: ${{ secrets.RPC_URL }}
+          PAYROLL_ADDRESS: ${{ secrets.PAYROLL_ADDRESS }}
+          SCHEDULER_PRIVATE_KEY: ${{ secrets.SCHEDULER_PRIVATE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_FROM: ${{ vars.ALERT_FROM }}
+          ALERT_TO: ${{ vars.ALERT_TO }}
+          ALERT_HOURS_UTC: ${{ vars.ALERT_HOURS_UTC }}
+          CONFIRMATIONS: ${{ vars.CONFIRMATIONS }}
